@@ -3,7 +3,11 @@ package para;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class Main {
 	
@@ -21,34 +25,47 @@ public class Main {
     	int[][] post_list = getPostList(red_G, apps, posts);
     	int[][] app_list = getAppList(red_G, apps, posts);
 
-    	for (int i = 0; i < red_G.size(); i++) {
-    		for(int k = 0; k < red_G.get(i).size(); k++)
-    			System.out.print(red_G.get(i).get(k));
-    		System.out.println();
-    	}
+//    	for (int i = 0; i < red_G.size(); i++) {
+//    		for(int k = 0; k < red_G.get(i).size(); k++)
+//    			System.out.print(red_G.get(i).get(k));
+//    		System.out.println();
+//    	}
+//    	
+//    	
+//    	for (int i = 0; i < post_list.length; i++) {
+//    		for(int k = 0; k < post_list[0].length; k++)
+//    			System.out.print(post_list[i][k]);
+//    		System.out.println();
+//    	}
+//		System.out.println("------");
+//
+//    	for (int i = 0; i < app_list.length; i++) {
+//    		for(int k = 0; k < app_list[0].length; k++)
+//    			System.out.print(app_list[i][k]);
+//    		System.out.println();
+//    	}
+//    	System.out.println("------");
+//    	System.out.println(Arrays.toString(getAppDeg(red_G, apps, posts)));
+//    	System.out.println(Arrays.toString(getPostDeg(red_G, apps, posts)));
     	
     	
-    	for (int i = 0; i < post_list.length; i++) {
-    		for(int k = 0; k < post_list[0].length; k++)
-    			System.out.print(post_list[i][k]);
-    		System.out.println();
-    	}
-		System.out.println("------");
+    	int matching[] = {-1,-1,-1,-1};
+    	int test[]  = {-1, 3, 0, -1};
+    	int is[] = {0, 1, 2, 3};
+    	Arrays.stream(is).filter(i -> test[i] != -1)
+    		      .forEach(i -> {
+    		    	  if (i != -1)
+    		    		  matching[test[i]] = i;
+    		      });
 
-    	for (int i = 0; i < app_list.length; i++) {
-    		for(int k = 0; k < app_list[0].length; k++)
-    			System.out.print(app_list[i][k]);
-    		System.out.println();
-    	}
-    	System.out.println("------");
-    	System.out.println(Arrays.toString(getAppDeg(red_G, apps, posts)));
-    	System.out.println(Arrays.toString(getPostDeg(red_G, apps, posts)));
 
-    	Runnable r = new PathFinder();
-    	Thread t = new Thread(r);
-    	t.start();
+    	System.out.println(Arrays.toString(matching));
+    	
+    	
+//    	Runnable r = new PathFinder();
+//    	Thread t = new Thread(r);
+//    	t.start();
     }
-    
     
     
     private static ArrayList<ArrayList<Integer>> getReducedGraph(ArrayList<ArrayList<Integer>> pref_list) {
@@ -124,11 +141,7 @@ public class Main {
             }
             app_prefs.add(i_prefs);
         }
-    	for (int i = 0; i < app_prefs.size(); i++) {
-    		for(int k = 0; k < app_prefs.get(i).size(); k++)
-    			System.out.print(app_prefs.get(i).get(k));
-    		System.out.println();
-    	}
+
     	return app_prefs;
     }
 }
