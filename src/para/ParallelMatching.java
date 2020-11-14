@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import generator.PreferenceListGenerator;
 
-public class Main {
+public class ParallelMatching {
 	
     public static void main(String[] args) throws Exception {
     	
@@ -31,7 +31,7 @@ public class Main {
 //    	ArrayList<ArrayList<Integer>> pref_list = parsePrefList(args, sc, apps, posts);
     	
     }
-    private static void match(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts) {
+    public static int[] match(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts) {
     	
     	ArrayList<ArrayList<Integer>> red_G = getReducedGraph(pref_list);
     	int[][] post_list = getPostList(red_G, apps, posts);
@@ -45,26 +45,21 @@ public class Main {
 		Arrays.parallelSetAll(matching_apps,  e-> {return -1;});
 		Arrays.parallelSetAll(matching,  e-> {return -1;});
 
-    	ArrayList<Integer> deg1_posts = new ArrayList<Integer>();
-    	int deg0_apps_count = 0;
+//    	ArrayList<Integer> deg1_posts = new ArrayList<Integer>();
+
     	int deg1_posts_count = 0;
     	for (int i = 0; i < deg_posts.length; i++) {
     		if (deg_posts[i] == 1) {
-    			deg1_posts.add(i);
+//    			deg1_posts.add(i);
     			deg1_posts_count++;
     		}
     	}    	
-    	
-    	for (int i = 0; i < deg_apps.length; i++) {
-    		if (deg_apps[i] == 0) {
-    			deg0_apps_count++;
-    		}
-    	}
+
     	
     	int deg1_indexer = 0;
 		int num_match = 0;		
 
-    	deg1_loop:
+
     	while (deg1_posts_count > 0) {
     		int p = -1;
     		int[] even_posts = new int[posts]; 
@@ -97,15 +92,16 @@ public class Main {
 					num_match++;
 					has_next_path = false;
 					System.out.println("adding post " + p + " with app " + a);
+					find_next_post:
 					for (int i = 0; i < app_list[a].length; i++) {
 						if (i != p && app_list[a][i] == 1) { 	//find the p's attached to app that have degree 2
-							
 							if (deg_posts[i] == 2 && even_posts[i] == -1) {
 								System.out.println("setting next post for " + a + " as post: " + i);
 								list = post_list[i];
 								has_next_path = true;
-								a = 0;
+								a = -1;
 								p = i;
+								break find_next_post;
 							}
 						}
 						
@@ -157,9 +153,10 @@ public class Main {
 		int not_match = apps-num_match;
 		
 		
-		if (posts-num_deg0_posts < apps-num_match)
+		if (posts-num_deg0_posts < apps-num_match) {
 			System.out.println(num_deg0_posts + "no app complete matching");
-		
+			return null;
+		}
 		else {
 			System.out.println("break matching");
 
@@ -169,7 +166,7 @@ public class Main {
 				if (matching_apps[i] == -1)
 					next_app = i;
 			}
-			//while there is still an umatched applicant
+			//while there is still an unmatched applicant
 			while(next_app != -1) {
 				int curr_app = next_app;
 				find_app_edge:
@@ -206,12 +203,7 @@ public class Main {
 //    		      });
 //
 //
-//    	System.out.println(Arrays.toString(matching));
-    	
-    	
-//    	Runnable r = new PathFinder();
-//    	Thread t = new Thread(r);
-//    	t.start();
+		return matching;
     }
     
     
