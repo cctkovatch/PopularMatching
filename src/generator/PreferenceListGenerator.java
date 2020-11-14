@@ -30,7 +30,7 @@ public class PreferenceListGenerator {
 	public ArrayList<ArrayList<Integer>> getPrefList() {
 		pref_list.clear();
 		for (int i = 0; i < apps; i++) {
-			int num_acceptable = ThreadLocalRandom.current().nextInt(1, posts + 1);
+			int num_acceptable = ThreadLocalRandom.current().nextInt(2, posts + 1);
 			// each applicant has random number of acceptable edges
 			ArrayList<Integer> ranking = new ArrayList<Integer>();
 			for (int k = 0; k < posts; k++) {

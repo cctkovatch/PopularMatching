@@ -4,13 +4,13 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
+import javafx.util.Pair;
 
 public class Matcher implements MatchingRMI{
     String[] peers; // hostname
     int[] ports; // host port
-    int me = -1; // index into peers[]
+    int me = 0; // index into peers[]
 
     boolean master = false; // Indicates whether or not this is the master node
     Matcher[] slaves;
@@ -28,24 +28,29 @@ public class Matcher implements MatchingRMI{
      * Call to create the master Matcher node.
      * The master Matcher node will generate the slave nodes when necessary.
      */
-    public Matcher(ArrayList<ArrayList<Integer>> reducedGraph, int apps, int posts){
+    public Matcher(ArrayList<ArrayList<Integer>> prefList, int apps, int posts){
         this.apps = apps;
         this.posts = posts;
-        this.reducedGraph = reducedGraph;
-        threadResponses = new ArrayList<>(posts);
+
+        reducedGraph = getReducedGraph(prefList);
+        threadResponses = new ArrayList<>();
+
+        for(int i = 0; i < posts; i++){
+            threadResponses.add(null);
+        }
 
         String host = "127.0.0.1";
-        peers = new String[posts]; // Need at most 1 slave per post to ensure work can be fully distributed
-        ports = new int[posts];
+        peers = new String[posts + 1]; // Need at most 1 slave per post to ensure work can be fully distributed
+        ports = new int[posts + 1];
         slaves = new Matcher[posts];
 
-        for(int i = 0; i < posts; i++){ // TODO: Rework this so we don't have a slave for every post, doesn't scale well at all.
+        for(int i = 0; i < posts + 1; i++){ // TODO: Rework this so we don't have a slave for every post, doesn't scale well at all.
             ports[i] = 1100 + i;
             peers[i] = host;
         }
 
         for(int i = 0; i < posts; i++){
-            slaves[i] = new Matcher(i, peers, ports, reducedGraph, apps, posts);
+            slaves[i] = new Matcher(i + 1, peers, ports, reducedGraph, apps, posts);
         }
 
         // register peers, do not modify this part
@@ -65,7 +70,6 @@ public class Matcher implements MatchingRMI{
      * are in peers[]. The ports are in ports[].
      */
     private Matcher(int me, String[] peers, int[] ports, ArrayList<ArrayList<Integer>> reducedGraph, int apps, int posts){
-
         this.me = me;
         this.peers = peers;
         this.ports = ports;
@@ -86,22 +90,38 @@ public class Matcher implements MatchingRMI{
         }
     }
 
-    public void StartMatching(){
-        ArrayList<Pair<Integer>> matchingAC = generateACMatching();
-        ArrayList<Pair<Integer>> popularMatching = generatePopularMatching(matchingAC);
+    public int[] startMatching(){
+        ArrayList<Pair<Integer, Integer>> matchingAC = generateACMatching();
+        ArrayList<Pair<Integer, Integer>> popularMatching = generatePopularMatching(matchingAC);
 
         if(popularMatching == null){
             System.out.println("No popular matching exists");
+
+            /* Master node and slave nodes cleanup */
+            // TODO: Cleanup nodes
+
+            return null;
         } else {
             System.out.println("A popular matching exists");
-            for(Pair<Integer> match : popularMatching){
+            for(Pair<Integer, Integer> match : popularMatching){
                 System.out.println("Applicant " + match.getKey() + " pairs with post " + match.getValue());
             }
-        }
 
-        /* Master node and slave nodes cleanup */
-        // TODO: Cleanup nodes
-        System.exit(0);
+            int[] compressedMatching = new int[posts];
+
+            for(int i = 0; i < posts; i++){
+                compressedMatching[i] = -1;
+            }
+
+            for(Pair<Integer, Integer> match : popularMatching){
+                compressedMatching[match.getValue()] = match.getKey();
+            }
+
+            /* Master node and slave nodes cleanup */
+            // TODO: Cleanup nodes
+
+            return compressedMatching;
+        }
     }
 
 
@@ -137,6 +157,7 @@ public class Matcher implements MatchingRMI{
                     break;
             }
         } catch(Exception e){
+            e.printStackTrace();
             return null;
         }
         return callReply;
@@ -145,7 +166,7 @@ public class Matcher implements MatchingRMI{
     @Override
     public Response matchAC(Request req) throws RemoteException {
         Response response;
-        ArrayList<Pair<Integer>> matchings = new ArrayList<>();
+        ArrayList<Pair<Integer, Integer>> matchings = new ArrayList<>();
 
         int[][] postList = getPostList(reducedGraph, apps, posts);
         int currPost = req.post;
@@ -178,14 +199,14 @@ public class Matcher implements MatchingRMI{
          second slave node's matching. */
         if(req.postDegrees[currPost] == 0) oneToOne = true;
 
-        response = new Response(matchings, oneToOne, currPost);
+        response = new Response(matchings, oneToOne, req.post, currPost);
 
         return response;
     }
 
     @Override
     public Response promoteAC(Request req) throws RemoteException {
-        Response response = null;
+        Response response;
 
         int fPost = req.post;
 
@@ -193,12 +214,17 @@ public class Matcher implements MatchingRMI{
 
         for(int i = 0; i < reducedGraph.size(); i++){
             if(reducedGraph.get(i).get(0).equals(fPost)){
-                Pair<Integer> promotion = new Pair<>(i, fPost);
-                ArrayList<Pair<Integer>> matching = new ArrayList<>();
+                Pair<Integer, Integer> promotion = new Pair<>(i, fPost);
+                ArrayList<Pair<Integer, Integer>> matching = new ArrayList<>();
                 matching.add(promotion);
-                response = new Response(matching, false, -1);
+                response = new Response(matching, false, req.post, -1);
+                return response;
             }
         }
+
+        ArrayList<Pair<Integer, Integer>> matching = new ArrayList<>();
+
+        response = new Response(matching, false, req.post, -1);
 
         return response;
     }
@@ -208,17 +234,24 @@ public class Matcher implements MatchingRMI{
      *  This method is used to generate an applicant-complete matching or determine if one does not exist.
      *  This applicant-complete matching can then be manipulated into a popular matching.
      */
-    private ArrayList<Pair<Integer>> generateACMatching(){
-        ArrayList<Pair<Integer>> matching = new ArrayList<>();
+    private ArrayList<Pair<Integer, Integer>> generateACMatching(){
+        ArrayList<Pair<Integer, Integer>> matching = new ArrayList<>();
 
         int degreeOneCount = 0;
         int[] degrees = getPostDeg(reducedGraph, posts);
         int[][] postList = getPostList(reducedGraph, apps, posts);
-        // int[][] appList = getAppList(reducedGraph, apps, posts);
+
+        for(int i = 0; i < posts; i++){
+            for(int j = 0; j < apps; j++){
+                System.out.print(postList[i][j] + " ");
+            }
+            System.out.println();
+        }
+        System.out.println();
 
         /* Count the number of degree 1 posts. This is how many slave nodes we must invoke. */
         for(int i = 0; i < posts; i++){
-            if(i == 1){
+            if(degrees[i] == 1){
                 degreeOneCount++;
             }
         }
@@ -226,21 +259,32 @@ public class Matcher implements MatchingRMI{
         /* Request a slave to process matching for a given degree 1 post */
         // TODO: Rework this to generate a new thread for each degree 1 post so messaging can happen in parallel.
         for(int i = 0; i < posts; i++){
-            if(i == 1){
+            if(degrees[i] == 1){
                 Request request = new Request(i, degrees);
-                threadResponses.add(i, Call("matchAC", request, i));
+                Response response = Call("matchAC", request, i + 1);
+                System.out.println(response);
+                threadResponses.set(i, response);
                 responseCount++;
             }
         }
 
 
-        while(responseCount < degreeOneCount); // Necessary when using threads for parallelized messaging.
+        //while(responseCount < degreeOneCount); // Necessary when using threads for parallelized messaging.
+
 
         int orphanedPostCount = 0;
 
-        for(Response r : threadResponses){ // TODO: Need to add check for oneToOne matching paths
+        HashSet<Integer> oneToOneEndPosts = new HashSet<>();
+
+        for(Response r : threadResponses){
             if(r != null){
-                for(Pair<Integer> match : r.matchings){
+                if(r.oneToOne && oneToOneEndPosts.contains(r.startPost)){ // We have a conflicting matching set, so only keep the first one we saw.
+                    degrees[r.startPost] = 0;
+                    continue;
+                } else if(r.oneToOne){
+                    oneToOneEndPosts.add(r.endPost);
+                }
+                for(Pair<Integer, Integer> match : r.matchings){
                     if(postList[match.getValue()][match.getKey()] != 0) { // Check if matching has already been added
                         matching.add(match);
                         for(int i = 0; i < posts; i++){
@@ -254,14 +298,19 @@ public class Matcher implements MatchingRMI{
                                 }
                             }
                         }
-//                        for(int i = 0; i < apps; i++){ // TODO: Do I need this??
-//                            if(appList[i][match.getValue()] == 1){
-//                                appList[i][match.getValue()] = 0;
-//                            }
-//                        }
                     }
                 }
+            } else {
+                System.out.println("Null response!");
             }
+        }
+
+
+        for(int i = 0; i < posts; i++){
+            for(int j = 0; j < apps; j++){
+                System.out.print(postList[i][j] + " ");
+            }
+            System.out.println();
         }
 
         int appCount = apps - matching.size();
@@ -269,11 +318,13 @@ public class Matcher implements MatchingRMI{
 
         if(postCount >= appCount){ // An applicant complete matching can be generated
             int app = 0, post = 0;
+            System.out.println("Generating applicant complete matching between " + postCount + " posts and " + appCount + " apps");
             while(appCount > 0){
                 if(postList[post][app] == 1){
                     matching.add(new Pair<>(app, post));
                     degrees[post] = 0;
                     appCount--;
+                    postCount--;
                     for(int i = 0; i < apps; i++){ // This post is matched, remove all other edges
                         postList[post][i] = 0;
                     }
@@ -295,15 +346,13 @@ public class Matcher implements MatchingRMI{
                 }
             }
 
-            // TODO: It might be useful to save the degrees[] globally because it can be used for the next part
-
             return matching;
         } else { // An applicant complete matching cannot be generated
             return null;
         }
     }
 
-    private ArrayList<Pair<Integer>> generatePopularMatching(ArrayList<Pair<Integer>> matchingAC){
+    private ArrayList<Pair<Integer, Integer>> generatePopularMatching(ArrayList<Pair<Integer, Integer>> matchingAC){
         /* In the case that an applicant-complete matching could not be made */
         if(matchingAC == null){
             return null;
@@ -316,7 +365,7 @@ public class Matcher implements MatchingRMI{
             fPosts.add(posts.get(0)); // Collect all f-posts
         }
 
-        for(Pair<Integer> match : matchingAC){
+        for(Pair<Integer, Integer> match : matchingAC){
             fPosts.remove(match.getValue()); // Removes all matched f-posts
         }
 
@@ -325,16 +374,30 @@ public class Matcher implements MatchingRMI{
         /* Need to promote these unmatched fPosts */
         for(Integer fPost : fPosts){
             Request request = new Request(fPost, null);
-            responses.add(Call("promoteAC", request, fPost));
+            responses.add(Call("promoteAC", request, fPost + 1));
         }
+
+        int nullCount = 0;
+        for(Response response : responses){
+            if(response == null) nullCount++;
+        }
+
+        System.out.println("Null Count: " + nullCount);
 
         HashSet<Integer> promotedApps = new HashSet<>();
         for(Response response : responses){
+            if(response == null){
+                System.out.println("Null response????");
+            } else if(response.matchings == null){
+                System.out.println("Null matchings array");
+            } else if(response.matchings.size() == 0){
+                System.out.println("Empty matchings array");
+            }
             promotedApps.add(response.matchings.get(0).getKey());
         }
 
-        ArrayList<Pair<Integer>> toRemove = new ArrayList<>();
-        for(Pair<Integer> match : matchingAC){
+        ArrayList<Pair<Integer, Integer>> toRemove = new ArrayList<>();
+        for(Pair<Integer, Integer> match : matchingAC){
             if(promotedApps.contains(match.getKey())){ // Need to promote in this case
                 toRemove.add(match);
             }
@@ -388,5 +451,27 @@ public class Matcher implements MatchingRMI{
             }
         }
         return post_list;
+    }
+
+    private static ArrayList<ArrayList<Integer>> getReducedGraph(ArrayList<ArrayList<Integer>> prefList) {
+        ArrayList<ArrayList<Integer>> reducedG = new ArrayList<>();
+        ArrayList<Integer> fPosts = new ArrayList<>();
+
+        for (ArrayList<Integer> integers : prefList) {
+            fPosts.add(integers.get(0));
+        }
+        for (int p = 0; p < prefList.size(); p++) {
+            reducedG.add(new ArrayList<>());
+            ArrayList<Integer> lst = prefList.get(p);
+            reducedG.get(p).add(lst.get(0));
+
+            for (Integer i:lst) {
+                if (!fPosts.contains(i)) {
+                    reducedG.get(p).add(i);
+                    break;
+                }
+            }
+        }
+        return reducedG;
     }
 }

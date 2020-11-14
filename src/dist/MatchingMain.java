@@ -23,44 +23,10 @@ public class MatchingMain {
 
         /* Generate a preference list and then the reduced graph from the input file */
         ArrayList<ArrayList<Integer>> prefList = parsePrefList(sc, apps);
-        ArrayList<ArrayList<Integer>> reducedGraph = getReducedGraph(prefList);
 
-        /* Output progress to console */
-        if(!SILENT){
-            System.out.println("Printing reduced graph");
-            for (ArrayList<Integer> integers : reducedGraph) {
-                for (Integer integer : integers) System.out.print(integer);
-                System.out.println();
-            }
-        }
-
-        Matcher master = new Matcher(reducedGraph, apps, posts);
-        master.StartMatching();
+        Matcher master = new Matcher(prefList, apps, posts);
+        master.startMatching();
     }
-
-    private static ArrayList<ArrayList<Integer>> getReducedGraph(ArrayList<ArrayList<Integer>> prefList) {
-        ArrayList<ArrayList<Integer>> reducedG = new ArrayList<>();
-        ArrayList<Integer> fPosts = new ArrayList<>();
-
-        for (ArrayList<Integer> integers : prefList) {
-            fPosts.add(integers.get(0));
-        }
-        for (int p = 0; p < prefList.size(); p++) {
-            reducedG.add(new ArrayList<>());
-            ArrayList<Integer> lst = prefList.get(p);
-            reducedG.get(p).add(lst.get(0));
-
-            for (Integer i:lst) {
-                if (!fPosts.contains(i)) {
-                    reducedG.get(p).add(i);
-                    break;
-                }
-            }
-        }
-        return reducedG;
-    }
-
-
 
     private static ArrayList<ArrayList<Integer>> parsePrefList(Scanner sc, int apps) {
         ArrayList<ArrayList<Integer>> appPrefs = new ArrayList<>();
