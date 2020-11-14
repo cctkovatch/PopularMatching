@@ -3,8 +3,8 @@ package dist;
 import java.util.Objects;
 
 public class Pair<T> {
-    T key;
-    T value;
+    private T key;
+    private T value;
 
     public Pair(T key, T value){
         this.key = key;
