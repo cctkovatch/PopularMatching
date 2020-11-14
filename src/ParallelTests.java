@@ -18,7 +18,7 @@ public class ParallelTests {
     	x.writeToFile(pref_list);
     	int apps = x.getAppCount();
     	int posts = x.getPostCount();
-    	int[] matching = ParallelMatching.match(pref_list, apps, posts);
+    	int[] matching = ParallelMatching.promotedMatch(pref_list, apps, posts);
     	if (matching == null) {
     		assertTrue("no applicant complete matching", true);
     	}
