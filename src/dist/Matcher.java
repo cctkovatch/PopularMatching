@@ -149,6 +149,7 @@ public class Matcher implements MatchingRMI{
 
         int[][] postList = getPostList(reducedGraph, apps, posts);
         int currPost = req.post;
+        boolean oneToOne = false;
 
         /* Keep going until we are no longer creating degree 1 posts by matching degree 1 posts */
         while(req.postDegrees[currPost] == 1){
@@ -172,7 +173,12 @@ public class Matcher implements MatchingRMI{
             }
         }
 
-        response = new Response(matchings);
+        /* If there is a path between two degree one nodes through degree two nodes,
+         we can only accept one of their matching sets. This allows us to discard the
+         second slave node's matching. */
+        if(req.postDegrees[currPost] == 0) oneToOne = true;
+
+        response = new Response(matchings, oneToOne, currPost);
 
         return response;
     }
@@ -180,7 +186,20 @@ public class Matcher implements MatchingRMI{
     @Override
     public Response promoteAC(Request req) throws RemoteException {
         Response response = null;
-        // TODO: Implement post promotion for provided post
+
+        int fPost = req.post;
+
+        /* Find the first applicant we can promote, and promote them */
+
+        for(int i = 0; i < reducedGraph.size(); i++){
+            if(reducedGraph.get(i).get(0).equals(fPost)){
+                Pair<Integer> promotion = new Pair<>(i, fPost);
+                ArrayList<Pair<Integer>> matching = new ArrayList<>();
+                matching.add(promotion);
+                response = new Response(matching, false, -1);
+            }
+        }
+
         return response;
     }
 
@@ -195,7 +214,7 @@ public class Matcher implements MatchingRMI{
         int degreeOneCount = 0;
         int[] degrees = getPostDeg(reducedGraph, posts);
         int[][] postList = getPostList(reducedGraph, apps, posts);
-        int[][] appList = getAppList(reducedGraph, apps, posts);
+        // int[][] appList = getAppList(reducedGraph, apps, posts);
 
         /* Count the number of degree 1 posts. This is how many slave nodes we must invoke. */
         for(int i = 0; i < posts; i++){
@@ -219,7 +238,7 @@ public class Matcher implements MatchingRMI{
 
         int orphanedPostCount = 0;
 
-        for(Response r : threadResponses){
+        for(Response r : threadResponses){ // TODO: Need to add check for oneToOne matching paths
             if(r != null){
                 for(Pair<Integer> match : r.matchings){
                     if(postList[match.getValue()][match.getKey()] != 0) { // Check if matching has already been added
@@ -255,7 +274,7 @@ public class Matcher implements MatchingRMI{
                     matching.add(new Pair<>(app, post));
                     degrees[post] = 0;
                     appCount--;
-                    for(int i = 0; i < apps; i++){
+                    for(int i = 0; i < apps; i++){ // This post is matched, remove all other edges
                         postList[post][i] = 0;
                     }
                     for(int i = 0; i < posts; i++){
@@ -290,10 +309,45 @@ public class Matcher implements MatchingRMI{
             return null;
         }
 
-        ArrayList<Pair<Integer>> matching = new ArrayList<>();
+        HashSet<Integer> fPosts = new HashSet<>();
 
+        /* Need to see which f-posts are unmatched */
+        for(ArrayList<Integer> posts : reducedGraph){
+            fPosts.add(posts.get(0)); // Collect all f-posts
+        }
 
-        return matching;
+        for(Pair<Integer> match : matchingAC){
+            fPosts.remove(match.getValue()); // Removes all matched f-posts
+        }
+
+        ArrayList<Response> responses = new ArrayList<>();
+
+        /* Need to promote these unmatched fPosts */
+        for(Integer fPost : fPosts){
+            Request request = new Request(fPost, null);
+            responses.add(Call("promoteAC", request, fPost));
+        }
+
+        HashSet<Integer> promotedApps = new HashSet<>();
+        for(Response response : responses){
+            promotedApps.add(response.matchings.get(0).getKey());
+        }
+
+        ArrayList<Pair<Integer>> toRemove = new ArrayList<>();
+        for(Pair<Integer> match : matchingAC){
+            if(promotedApps.contains(match.getKey())){ // Need to promote in this case
+                toRemove.add(match);
+            }
+        }
+
+        matchingAC.removeAll(toRemove); // Remove all matches that will be promoted.
+
+        for(Response response : responses){
+            matchingAC.add(response.matchings.get(0)); // Adds the promotions to the matching
+        }
+
+        /* Matching is now popular */
+        return matchingAC;
     }
 
     private int[][] getAppList(ArrayList<ArrayList<Integer>> prefList, int apps, int posts){
