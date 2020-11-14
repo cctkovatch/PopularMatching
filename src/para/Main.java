@@ -8,10 +8,15 @@ import java.util.Scanner;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import generator.PreferenceListGenerator;
 
 public class Main {
 	
     public static void main(String[] args) throws Exception {
+    	
+    	PreferenceListGenerator x = new PreferenceListGenerator(12,14);
+    	x.writeToFile(x.getPrefList());
+    	
     	int apps = 0;
     	int posts = 0;
     	String inputFile = args[0];
