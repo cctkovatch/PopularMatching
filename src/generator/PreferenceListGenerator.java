@@ -4,11 +4,19 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
+/*
+ * Generates a random set of preference lists for a apps and p posts. 
+ * Each applicant has at most k posts in its preference list, with k <= p and chosen randomly.
+ * Write to file will write the preference list to file in the format of original test preference list.
+ * Example usage in par.Main
+ */
+
 public class PreferenceListGenerator {
 	private int posts;
 	private int apps;
 	ArrayList<ArrayList<Integer>> pref_list;
-	public PreferenceListGenerator(int posts, int apps) {
+	
+	public PreferenceListGenerator(int apps, int posts) {
 		this.posts = posts;
 		this.apps = apps;
 		pref_list = new ArrayList<ArrayList<Integer>>(apps);
@@ -36,7 +44,12 @@ public class PreferenceListGenerator {
 		}
 		return pref_list;
 	}
-
+	public int getAppCount() {
+		return apps;
+	}
+	public int getPostCount() {
+		return posts;
+	}
 	public void writeToFile(ArrayList<ArrayList<Integer>> p_list) {
 		FileWriter myWriter;
 		try {

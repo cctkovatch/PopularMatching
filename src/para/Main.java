@@ -15,17 +15,24 @@ public class Main {
     public static void main(String[] args) throws Exception {
     	
     	PreferenceListGenerator x = new PreferenceListGenerator(12,14);
-    	x.writeToFile(x.getPrefList());
+//    	x.writeToFile(x.getPrefList());
+    	ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
+    	int apps = x.getAppCount();
+    	int posts = x.getPostCount();
+    	match(pref_list, apps, posts);
+//    	int apps = 0;
+//    	int posts = 0;
+//    	String inputFile = args[0];
+//    	Scanner sc = new Scanner(new File(inputFile));
+//        String[] inputSizes = sc.nextLine().split(" ");
+//    	apps = Integer.parseInt(inputSizes[0]);
+//    	posts = Integer.parseInt(inputSizes[1]);
+//    	
+//    	ArrayList<ArrayList<Integer>> pref_list = parsePrefList(args, sc, apps, posts);
     	
-    	int apps = 0;
-    	int posts = 0;
-    	String inputFile = args[0];
-    	Scanner sc = new Scanner(new File(inputFile));
-        String[] inputSizes = sc.nextLine().split(" ");
-    	apps = Integer.parseInt(inputSizes[0]);
-    	posts = Integer.parseInt(inputSizes[1]);
+    }
+    private static void match(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts) {
     	
-    	ArrayList<ArrayList<Integer>> pref_list = parsePrefList(args, sc, apps, posts);
     	ArrayList<ArrayList<Integer>> red_G = getReducedGraph(pref_list);
     	int[][] post_list = getPostList(red_G, apps, posts);
     	int[][] app_list = getAppList(red_G, apps, posts);
@@ -84,7 +91,7 @@ public class Main {
 			System.out.println(Arrays.toString(deg_posts) + " degrees" + num_match);
 			//finding all edges an even distance away from p
 			while (has_next_path) {
-				if(matching[a] == -1 && even_apps[a] == -1 && list[a] == 1) {
+				if(matching_apps[a] == -1 && even_apps[a] == -1 && list[a] == 1) {
 					even_posts[p] = a;
 					even_apps[a] = p;
 					num_match++;
