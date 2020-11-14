@@ -19,7 +19,7 @@ public class ParallelMatching {
     	ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
     	int apps = x.getAppCount();
     	int posts = x.getPostCount();
-    	match(pref_list, apps, posts);
+    	promotedMatch(pref_list, apps, posts);
 //    	int apps = 0;
 //    	int posts = 0;
 //    	String inputFile = args[0];
@@ -31,17 +31,45 @@ public class ParallelMatching {
 //    	ArrayList<ArrayList<Integer>> pref_list = parsePrefList(args, sc, apps, posts);
     	
     }
-    public static int[] match(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts) {
-    	
+    
+    public static int[] promotedMatch(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts) {
+
     	ArrayList<ArrayList<Integer>> red_G = getReducedGraph(pref_list);
+
+    	int[] app1_fpost = new int[posts];		
+    	int[] is_fpost = new int[posts];
+    	getFPosts(is_fpost, app1_fpost, red_G, posts); 
+    	int[] matching_apps = new int[apps];
+    	int[] matching = new int[posts];
+    	match(matching, matching_apps, red_G, apps, posts);
+    	
+    	int[] range_list = new int[posts];
+    	Arrays.parallelSetAll(range_list,  i -> i);
+    	
+    	Arrays.stream(range_list).filter(i -> matching[i] == -1 && is_fpost[i] == 1) //is an unmatched fpost
+	      .forEach(i -> {
+	    	  int promote_app = app1_fpost[i];
+	    	  int curr_matched_post = matching_apps[promote_app];
+	    	  matching[curr_matched_post] = -1; 
+	    	  matching[i] = promote_app;
+	    	  matching_apps[promote_app] = i;
+	      });
+    	return matching;
+    
+    }
+    
+    public static int[] match(int[] matching, int[] matching_apps, ArrayList<ArrayList<Integer>> red_G, int apps, int posts) {
+    	
+//    	ArrayList<ArrayList<Integer>> red_G = getReducedGraph(pref_list);
+
     	int[][] post_list = getPostList(red_G, apps, posts);
     	int[][] app_list = getAppList(red_G, apps, posts);
 
 
     	int[] deg_apps = getAppDeg(red_G, apps, posts);
     	int[] deg_posts = getPostDeg(red_G, apps, posts);
-    	int[] matching = new int[posts]; //post indexed matching
-    	int[] matching_apps = new int[apps]; //app indexed matching
+//    	int[] matching = new int[posts]; 
+//    	int[] matching_apps = new int[apps]; 
 		Arrays.parallelSetAll(matching_apps,  e-> {return -1;});
 		Arrays.parallelSetAll(matching,  e-> {return -1;});
 
@@ -202,11 +230,19 @@ public class ParallelMatching {
 //    		    		  matching[test[i]] = i;
 //    		      });
 //
-//
+
 		return matching;
     }
     
-    
+    private static void getFPosts(int[] is_fpost, int[] app1_fpost, ArrayList<ArrayList<Integer>> reduced_G, int posts) {
+    	
+    	for (int i = 0; i < reduced_G.size(); i++) {
+    		ArrayList<Integer> k = reduced_G.get(i);
+    		is_fpost[k.get(0)] = 1;
+    		app1_fpost[k.get(0)] = i;
+    	}
+
+    }
     private static ArrayList<ArrayList<Integer>> getReducedGraph(ArrayList<ArrayList<Integer>> pref_list) {
     	ArrayList<ArrayList<Integer>> reduced_G = new ArrayList<ArrayList<Integer>>();
     	ArrayList<Integer> fposts = new ArrayList<Integer>(); 
@@ -258,16 +294,7 @@ public class ParallelMatching {
     	});
     	return app_list;
     }   
-    
-    private static int[] getAppDegSeq(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts){
-    	int[] app_list =  new int[apps];
-    	for (int i = 0; i < pref_list.size(); i++) {
-    		for (int k = 0; k < pref_list.get(i).size(); k++) {
-    			app_list[i] ++;
-    		}
-    	}
-    	return app_list;
-    }   
+
     
     private static int[] getPostDeg(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts){
     	int[] post_list =  new int[posts];
