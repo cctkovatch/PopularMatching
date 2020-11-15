@@ -7,7 +7,7 @@ import org.junit.Test;
 
 import generator.PreferenceListGenerator;
 import para.ParallelMatching;
-
+import sequential.SequentialMatching;
 public class ParallelTests {
 
 	@Test
@@ -18,9 +18,22 @@ public class ParallelTests {
     	x.writeToFile(pref_list);
     	int apps = x.getAppCount();
     	int posts = x.getPostCount();
+    	long startTime = System.nanoTime();
+    	int[] seq_match = SequentialMatching.promotedMatch(pref_list, apps, posts);
+    	long endTime = System.nanoTime();
+
+    	long seq_duration = (endTime - startTime);
+    	
+    	startTime = System.nanoTime();
     	int[] matching = ParallelMatching.promotedMatch(pref_list, apps, posts);
+    	endTime = System.nanoTime();
+
+    	long par_duration = (endTime - startTime);
+    	System.out.println("seq match: " + Arrays.toString(seq_match) + " " + seq_duration);
+    	System.out.println("par match: " + Arrays.toString(matching) + " " + par_duration);
+
     	if (matching == null) {
-    		assertTrue("no applicant complete matching", true);
+    		assertTrue("no applicant complete matching", false);
     	}
     	ArrayList<Integer> fposts_set = new ArrayList<Integer>();
     	int[] fposts = new int[apps];
@@ -66,5 +79,6 @@ public class ParallelTests {
     		}
     	}
 	}
+
 
 }
