@@ -41,7 +41,9 @@ public class ParallelMatching {
     	getFPosts(is_fpost, app1_fpost, red_G, posts); 
     	int[] matching_apps = new int[apps];
     	int[] matching = new int[posts];
-    	match(matching, matching_apps, red_G, apps, posts);
+    	if(match(matching, matching_apps, red_G, apps, posts) == null){
+    		System.exit(0);
+		}
     	
     	int[] range_list = new int[posts];
     	Arrays.parallelSetAll(range_list,  i -> i);
@@ -182,7 +184,7 @@ public class ParallelMatching {
 		
 		
 		if (posts-num_deg0_posts < apps-num_match) {
-			System.out.println(num_deg0_posts + "no app complete matching");
+			System.out.println(num_deg0_posts + " no app complete matching");
 			return null;
 		}
 		else {
