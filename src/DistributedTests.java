@@ -12,7 +12,7 @@ public class DistributedTests {
 
     @Test
     public void test() {
-        PreferenceListGenerator x = new PreferenceListGenerator(15,20);
+        PreferenceListGenerator x = new PreferenceListGenerator(50,60);
 //    	x.writeToFile(x.getPrefList());
         ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
         x.writeToFile(pref_list);
@@ -21,7 +21,8 @@ public class DistributedTests {
         Matcher master = new Matcher(pref_list, apps, posts);
         int[] matching = master.startMatching();
         if (matching == null) {
-            assertTrue("no applicant complete matching", true);
+            System.out.println("No applicant complete matching");
+            return;
         }
         ArrayList<Integer> fposts_set = new ArrayList<Integer>();
         int[] fposts = new int[apps];

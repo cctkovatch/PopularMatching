@@ -5,8 +5,6 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Scanner;
 
-import static java.lang.Thread.sleep;
-
 public class MatchingMain {
     final static boolean SILENT = false;
     static int apps = 0;
@@ -26,6 +24,7 @@ public class MatchingMain {
 
         Matcher master = new Matcher(prefList, apps, posts);
         master.startMatching();
+        System.exit(0);
     }
 
     private static ArrayList<ArrayList<Integer>> parsePrefList(Scanner sc, int apps) {

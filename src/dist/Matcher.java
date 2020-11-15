@@ -168,7 +168,7 @@ public class Matcher implements MatchingRMI{
         Response response;
         ArrayList<Pair<Integer, Integer>> matchings = new ArrayList<>();
 
-        int[][] postList = getPostList(reducedGraph, apps, posts);
+        int[][] postList = req.postList;
         int currPost = req.post;
         boolean oneToOne = false;
 
@@ -258,52 +258,61 @@ public class Matcher implements MatchingRMI{
 
         /* Request a slave to process matching for a given degree 1 post */
         // TODO: Rework this to generate a new thread for each degree 1 post so messaging can happen in parallel.
-        for(int i = 0; i < posts; i++){
-            if(degrees[i] == 1){
-                Request request = new Request(i, degrees);
-                Response response = Call("matchAC", request, i);
-                System.out.println(response);
-                threadResponses.set(i, response);
-                responseCount++;
-            }
-        }
-
-
-        //while(responseCount < degreeOneCount); // Necessary when using threads for parallelized messaging.
-
-
         int orphanedPostCount = 0;
-
         HashSet<Integer> oneToOneEndPosts = new HashSet<>();
-
-        for(Response r : threadResponses){
-            if(r != null){
-                if(r.oneToOne && oneToOneEndPosts.contains(r.startPost)){ // We have a conflicting matching set, so only keep the first one we saw.
-                    degrees[r.startPost] = 0;
-                    continue;
-                } else if(r.oneToOne){
-                    oneToOneEndPosts.add(r.endPost);
+        while(degreeOneCount > 0){
+            for(int i = 0; i < posts; i++){
+                if(degrees[i] == 1){
+                    Request request = new Request(i, degrees, postList);
+                    Response response = Call("matchAC", request, i);
+                    System.out.println(response);
+                    threadResponses.set(i, response);
+                    responseCount++;
                 }
-                for(Pair<Integer, Integer> match : r.matchings){
-                    if(postList[match.getValue()][match.getKey()] != 0) { // Check if matching has already been added
-                        matching.add(match);
-                        for(int i = 0; i < posts; i++){
-                            if(postList[i][match.getKey()] == 1){
-                                postList[i][match.getKey()] = 0;
-                                degrees[i] -= 1;
+            }
 
-                                /* If a matching decreases the degree of a different post to 0, that post is orphaned */
-                                if(degrees[i] == 0 && i != match.getValue()){
-                                    orphanedPostCount++;
+            //while(responseCount < degreeOneCount); // Necessary when using threads for parallelized messaging.
+
+            for(Response r : threadResponses){
+                if(r != null){
+                    if(r.oneToOne && oneToOneEndPosts.contains(r.startPost)){ // We have a conflicting matching set, so only keep the first one we saw.
+                        System.out.println("Start: " + r.startPost + " End: " + r.endPost);
+                        degrees[r.startPost] = 0;
+                        continue;
+                    } else if(r.oneToOne){
+                        oneToOneEndPosts.add(r.endPost);
+                    }
+                    for(Pair<Integer, Integer> match : r.matchings){
+                        if(postList[match.getValue()][match.getKey()] == 1) { // Check if matching hasn't been made yet
+                            matching.add(match);
+                            for(int i = 0; i < posts; i++){
+                                if(postList[i][match.getKey()] == 1){
+                                    postList[i][match.getKey()] = 0;
+                                    degrees[i] -= 1;
+
+                                    /* If a matching decreases the degree of a different post to 0, that post is orphaned */
+                                    if(degrees[i] == 0 && i != match.getValue()){
+                                        orphanedPostCount++;
+                                    }
                                 }
+                            }
+                            for(int i = 0; i < apps; i++){
+                                postList[match.getValue()][i] = 0;
                             }
                         }
                     }
+                } else {
+                    System.out.println("Null response!");
                 }
-            } else {
-                System.out.println("Null response!");
+            }
+            degreeOneCount = 0;
+            for(int i : degrees){
+                if(i == 1){
+                    degreeOneCount++;
+                }
             }
         }
+
 
 
         for(int i = 0; i < posts; i++){
@@ -314,7 +323,14 @@ public class Matcher implements MatchingRMI{
         }
 
         int appCount = apps - matching.size();
-        int postCount = posts - matching.size() - orphanedPostCount;
+        int degreeZeroCount = 0;
+        for(int i : degrees){
+            if(i == 0){
+                degreeZeroCount++;
+            }
+        }
+
+        int postCount = posts - degreeZeroCount; //matching.size() - orphanedPostCount;
 
         if(postCount >= appCount){ // An applicant complete matching can be generated
             int app = 0, post = 0;
@@ -373,7 +389,7 @@ public class Matcher implements MatchingRMI{
 
         /* Need to promote these unmatched fPosts */
         for(Integer fPost : fPosts){
-            Request request = new Request(fPost, null);
+            Request request = new Request(fPost, null, null);
             responses.add(Call("promoteAC", request, fPost));
         }
 
