@@ -12,7 +12,7 @@ public class DistributedTests {
 
     @Test
     public void test() {
-        PreferenceListGenerator x = new PreferenceListGenerator(20,30);
+        PreferenceListGenerator x = new PreferenceListGenerator(15,20);
 //    	x.writeToFile(x.getPrefList());
         ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
         x.writeToFile(pref_list);

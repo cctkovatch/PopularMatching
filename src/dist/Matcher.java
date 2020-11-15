@@ -10,7 +10,7 @@ import javafx.util.Pair;
 public class Matcher implements MatchingRMI{
     String[] peers; // hostname
     int[] ports; // host port
-    int me = 0; // index into peers[]
+    int me = -1; // index into peers[]
 
     boolean master = false; // Indicates whether or not this is the master node
     Matcher[] slaves;
@@ -40,28 +40,28 @@ public class Matcher implements MatchingRMI{
         }
 
         String host = "127.0.0.1";
-        peers = new String[posts + 1]; // Need at most 1 slave per post to ensure work can be fully distributed
-        ports = new int[posts + 1];
+        peers = new String[posts]; // Need at most 1 slave per post to ensure work can be fully distributed
+        ports = new int[posts];
         slaves = new Matcher[posts];
 
-        for(int i = 0; i < posts + 1; i++){ // TODO: Rework this so we don't have a slave for every post, doesn't scale well at all.
+        for(int i = 0; i < posts; i++){ // TODO: Rework this so we don't have a slave for every post, doesn't scale well at all.
             ports[i] = 1100 + i;
             peers[i] = host;
         }
 
         for(int i = 0; i < posts; i++){
-            slaves[i] = new Matcher(i + 1, peers, ports, reducedGraph, apps, posts);
+            slaves[i] = new Matcher(i, peers, ports, reducedGraph, apps, posts);
         }
 
         // register peers, do not modify this part
-        try{
-            System.setProperty("java.rmi.server.hostname", this.peers[this.me]);
-            registry = LocateRegistry.createRegistry(this.ports[this.me]);
-            stub = (MatchingRMI) UnicastRemoteObject.exportObject(this, this.ports[this.me]);
-            registry.rebind("Matching", stub);
-        } catch(Exception e){
-            e.printStackTrace();
-        }
+//        try{
+//            System.setProperty("java.rmi.server.hostname", this.peers[this.me]);
+//            registry = LocateRegistry.createRegistry(this.ports[this.me]);
+//            stub = (MatchingRMI) UnicastRemoteObject.exportObject(this, this.ports[this.me]);
+//            registry.rebind("Matching", stub);
+//        } catch(Exception e){
+//            e.printStackTrace();
+//        }
     }
 
     /**
@@ -261,7 +261,7 @@ public class Matcher implements MatchingRMI{
         for(int i = 0; i < posts; i++){
             if(degrees[i] == 1){
                 Request request = new Request(i, degrees);
-                Response response = Call("matchAC", request, i + 1);
+                Response response = Call("matchAC", request, i);
                 System.out.println(response);
                 threadResponses.set(i, response);
                 responseCount++;
@@ -374,7 +374,7 @@ public class Matcher implements MatchingRMI{
         /* Need to promote these unmatched fPosts */
         for(Integer fPost : fPosts){
             Request request = new Request(fPost, null);
-            responses.add(Call("promoteAC", request, fPost + 1));
+            responses.add(Call("promoteAC", request, fPost));
         }
 
         int nullCount = 0;
