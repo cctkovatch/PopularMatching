@@ -15,16 +15,18 @@ public class PreferenceListGenerator {
 	private int posts;
 	private int apps;
 	ArrayList<ArrayList<Integer>> pref_list;
-	
+	public PreferenceListGenerator() {
+		setSize(0,0);
+		pref_list = new ArrayList<ArrayList<Integer>>();
+	}
 	public PreferenceListGenerator(int apps, int posts) {
 		this.posts = posts;
 		this.apps = apps;
 		pref_list = new ArrayList<ArrayList<Integer>>(apps);
 	}
-	public void setSize(int posts, int apps) {
+	public void setSize(int apps, int posts) {
 		this.posts = posts;
 		this.apps = apps;
-	
 	}
 	
 	public ArrayList<ArrayList<Integer>> getPrefList() {
