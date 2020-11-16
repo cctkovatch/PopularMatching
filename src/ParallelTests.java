@@ -36,29 +36,40 @@ public class ParallelTests {
     			ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
     	    	int apps = x.getAppCount();
     	    	int posts = x.getPostCount();
+
+				/* Sequential timing */
     	    	long startTime = System.nanoTime();
     	    	int[] seq_match = SequentialMatching.promotedMatch(pref_list, apps, posts);
     	    	long endTime = System.nanoTime();
-
     	    	long seq_duration = (endTime - startTime);
-    	    	
+
+    	    	if(seq_match == null) continue; // We want to check timing for matchable sets only.
+
+				/* Parallel timing */
     	    	startTime = System.nanoTime();
     	    	int[] matching = ParallelMatching.promotedMatch(pref_list, apps, posts);
     	    	endTime = System.nanoTime();
     	    	long par_duration = (endTime - startTime);
+
+    	    	/* Distributed timing */
+				startTime = System.nanoTime();
+				int[] distMatching = ParallelMatching.promotedMatch(pref_list, apps, posts);
+				endTime = System.nanoTime();
+				long distDuration = (endTime - startTime);
+
     	    	System.out.println("seq match: " + Arrays.toString(seq_match) + " " + seq_duration);
     	    	System.out.println("par match: " + Arrays.toString(matching) + " " + par_duration);
+    	    	System.out.println(("dist match: ") +  Arrays.toString(distMatching) + " " + distDuration);
 
     	    	if (matching == null) {
     	    		System.out.println("no applicant complete matching");
     	    		// keep trying until there is an app complete matching
-    	    		
-    	    		
     	    	}
     	    	else {
 	    	    	assertTrue(matchingCheck(apps, posts, pref_list, matching));
 	    	    	writeTiming(apps, posts, "Sequential", seq_duration);
 	    	    	writeTiming(apps, posts, "Parallel", par_duration);
+	    	    	writeTiming(apps, posts, "Distributed", distDuration);
 	    	    	p += post_jump;
     	    	}
     			
