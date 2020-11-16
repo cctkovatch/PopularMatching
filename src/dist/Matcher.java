@@ -5,6 +5,8 @@ import java.rmi.server.UnicastRemoteObject;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import javafx.util.Pair;
 
 public class Matcher implements MatchingRMI{
@@ -12,13 +14,12 @@ public class Matcher implements MatchingRMI{
     int[] ports; // host port
     int me = -1; // index into peers[]
 
-    boolean master = false; // Indicates whether or not this is the master node
     Matcher[] slaves;
     int apps; // Total post count
     int posts; // Total app count
     ArrayList<ArrayList<Integer>> reducedGraph;
     ArrayList<Response> threadResponses;
-    int responseCount = 0;
+    AtomicInteger responseCount = new AtomicInteger(0);
 
     Registry registry;
     MatchingRMI stub;
@@ -52,16 +53,6 @@ public class Matcher implements MatchingRMI{
         for(int i = 0; i < posts; i++){
             slaves[i] = new Matcher(i, peers, ports, reducedGraph, apps, posts);
         }
-
-        // register peers, do not modify this part
-//        try{
-//            System.setProperty("java.rmi.server.hostname", this.peers[this.me]);
-//            registry = LocateRegistry.createRegistry(this.ports[this.me]);
-//            stub = (MatchingRMI) UnicastRemoteObject.exportObject(this, this.ports[this.me]);
-//            registry.rebind("Matching", stub);
-//        } catch(Exception e){
-//            e.printStackTrace();
-//        }
     }
 
     /**
@@ -79,7 +70,7 @@ public class Matcher implements MatchingRMI{
         this.posts = posts;
 
 
-        // register peers, do not modify this part
+        /* Register slave node */
         try{
             System.setProperty("java.rmi.server.hostname", this.peers[this.me]);
             registry = LocateRegistry.createRegistry(this.ports[this.me]);
@@ -97,8 +88,16 @@ public class Matcher implements MatchingRMI{
         if(popularMatching == null){
             System.out.println("No popular matching exists");
 
-            /* Master node and slave nodes cleanup */
-            // TODO: Cleanup nodes
+            /* Slave nodes cleanup */
+            for(Matcher m : slaves){
+                if(m.registry != null){
+                    try {
+                        UnicastRemoteObject.unexportObject(m.registry, true);
+                    } catch(Exception e){
+                        System.out.println("None reference");
+                    }
+                }
+            }
 
             return null;
         } else {
@@ -117,8 +116,16 @@ public class Matcher implements MatchingRMI{
                 compressedMatching[match.getValue()] = match.getKey();
             }
 
-            /* Master node and slave nodes cleanup */
-            // TODO: Cleanup nodes
+            /* Slave nodes cleanup */
+            for(Matcher m : slaves){
+                if(m.registry != null){
+                    try {
+                        UnicastRemoteObject.unexportObject(m.registry, true);
+                    } catch(Exception e){
+                        System.out.println("None reference");
+                    }
+                }
+            }
 
             return compressedMatching;
         }
@@ -211,7 +218,6 @@ public class Matcher implements MatchingRMI{
         int fPost = req.post;
 
         /* Find the first applicant we can promote, and promote them */
-
         for(int i = 0; i < reducedGraph.size(); i++){
             if(reducedGraph.get(i).get(0).equals(fPost)){
                 Pair<Integer, Integer> promotion = new Pair<>(i, fPost);
@@ -241,13 +247,13 @@ public class Matcher implements MatchingRMI{
         int[] degrees = getPostDeg(reducedGraph, posts);
         int[][] postList = getPostList(reducedGraph, apps, posts);
 
-        for(int i = 0; i < posts; i++){
-            for(int j = 0; j < apps; j++){
-                System.out.print(postList[i][j] + " ");
-            }
-            System.out.println();
-        }
-        System.out.println();
+//        for(int i = 0; i < posts; i++){
+//            for(int j = 0; j < apps; j++){
+//                System.out.print(postList[i][j] + " ");
+//            }
+//            System.out.println();
+//        }
+//        System.out.println();
 
         /* Count the number of degree 1 posts. This is how many slave nodes we must invoke. */
         for(int i = 0; i < posts; i++){
@@ -256,34 +262,32 @@ public class Matcher implements MatchingRMI{
             }
         }
 
-        /* Request a slave to process matching for a given degree 1 post */
-        // TODO: Rework this to generate a new thread for each degree 1 post so messaging can happen in parallel.
+        /* Request (in parallel) a slave to process matching(s) for a given degree 1 post */
         int orphanedPostCount = 0;
         HashSet<Integer> oneToOneEndPosts = new HashSet<>();
         while(degreeOneCount > 0){
             for(int i = 0; i < posts; i++){
                 if(degrees[i] == 1){
                     Request request = new Request(i, degrees, postList);
-                    Response response = Call("matchAC", request, i);
-                    System.out.println(response);
-                    threadResponses.set(i, response);
-                    responseCount++;
+                    CallerThread caller = new CallerThread("matchAC", request, i);
+                    caller.start();
                 }
             }
 
-            //while(responseCount < degreeOneCount); // Necessary when using threads for parallelized messaging.
+            while(responseCount.get() < degreeOneCount); // Necessary when using threads for parallelized messaging.
+            responseCount.set(0); // Resets response count
 
             for(Response r : threadResponses){
                 if(r != null){
                     if(r.oneToOne && oneToOneEndPosts.contains(r.startPost)){ // We have a conflicting matching set, so only keep the first one we saw.
-                        System.out.println("Start: " + r.startPost + " End: " + r.endPost);
+                        // System.out.println("Start: " + r.startPost + " End: " + r.endPost);
                         degrees[r.startPost] = 0;
                         continue;
                     } else if(r.oneToOne){
                         oneToOneEndPosts.add(r.endPost);
                     }
                     for(Pair<Integer, Integer> match : r.matchings){
-                        if(postList[match.getValue()][match.getKey()] == 1) { // Check if matching hasn't been made yet
+                        if(postList[match.getValue()][match.getKey()] == 1) { // Check if matching hasn't been made yet TODO: is this necessary?
                             matching.add(match);
                             for(int i = 0; i < posts; i++){
                                 if(postList[i][match.getKey()] == 1){
@@ -291,9 +295,9 @@ public class Matcher implements MatchingRMI{
                                     degrees[i] -= 1;
 
                                     /* If a matching decreases the degree of a different post to 0, that post is orphaned */
-                                    if(degrees[i] == 0 && i != match.getValue()){
-                                        orphanedPostCount++;
-                                    }
+//                                    if(degrees[i] == 0 && i != match.getValue()){
+//                                        orphanedPostCount++;
+//                                    }
                                 }
                             }
                             for(int i = 0; i < apps; i++){
@@ -301,8 +305,6 @@ public class Matcher implements MatchingRMI{
                             }
                         }
                     }
-                } else {
-                    System.out.println("Null response!");
                 }
             }
             degreeOneCount = 0;
@@ -313,14 +315,12 @@ public class Matcher implements MatchingRMI{
             }
         }
 
-
-
-        for(int i = 0; i < posts; i++){
-            for(int j = 0; j < apps; j++){
-                System.out.print(postList[i][j] + " ");
-            }
-            System.out.println();
-        }
+//        for(int i = 0; i < posts; i++){
+//            for(int j = 0; j < apps; j++){
+//                System.out.print(postList[i][j] + " ");
+//            }
+//            System.out.println();
+//        }
 
         int appCount = apps - matching.size();
         int degreeZeroCount = 0;
@@ -385,31 +385,31 @@ public class Matcher implements MatchingRMI{
             fPosts.remove(match.getValue()); // Removes all matched f-posts
         }
 
-        ArrayList<Response> responses = new ArrayList<>();
+        /* Clear out threadResponses array */
+        for(int i = 0; i < threadResponses.size(); i++){
+            threadResponses.set(i, null);
+        }
+
+        responseCount.set(0);
+
+        int promotionCount = fPosts.size();
 
         /* Need to promote these unmatched fPosts */
         for(Integer fPost : fPosts){
             Request request = new Request(fPost, null, null);
-            responses.add(Call("promoteAC", request, fPost));
+            CallerThread caller = new CallerThread("promoteAC", request, fPost);
+            caller.start();
         }
 
-        int nullCount = 0;
-        for(Response response : responses){
-            if(response == null) nullCount++;
-        }
+        while(responseCount.get() < promotionCount); // Need to wait for all responses
+        responseCount.set(0);
 
-        System.out.println("Null Count: " + nullCount);
-
+        /* Determine which applicants need to be promoted */
         HashSet<Integer> promotedApps = new HashSet<>();
-        for(Response response : responses){
-            if(response == null){
-                System.out.println("Null response????");
-            } else if(response.matchings == null){
-                System.out.println("Null matchings array");
-            } else if(response.matchings.size() == 0){
-                System.out.println("Empty matchings array");
+        for(Response response : threadResponses){
+            if(response != null){
+                promotedApps.add(response.matchings.get(0).getKey());
             }
-            promotedApps.add(response.matchings.get(0).getKey());
         }
 
         ArrayList<Pair<Integer, Integer>> toRemove = new ArrayList<>();
@@ -421,8 +421,10 @@ public class Matcher implements MatchingRMI{
 
         matchingAC.removeAll(toRemove); // Remove all matches that will be promoted.
 
-        for(Response response : responses){
-            matchingAC.add(response.matchings.get(0)); // Adds the promotions to the matching
+        for(Response response : threadResponses){
+            if(response != null){
+                matchingAC.add(response.matchings.get(0)); // Adds the promotions to the matching
+            }
         }
 
         /* Matching is now popular */
@@ -489,5 +491,24 @@ public class Matcher implements MatchingRMI{
             }
         }
         return reducedG;
+    }
+
+    private class CallerThread extends Thread{
+        private final Request request;
+        private final int post;
+        private final String rmi;
+
+        public CallerThread(String rmi, Request request, int post){
+            this.post = post;
+            this.request = request;
+            this.rmi = rmi;
+        }
+
+        @Override
+        public void run(){
+            Response response = Call(rmi, request, post);
+            threadResponses.set(post, response); // Posts are unique, so there are no concurrency issues.
+            responseCount.incrementAndGet(); // Safely increments responseCount
+        }
     }
 }
