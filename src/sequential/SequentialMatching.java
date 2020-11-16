@@ -211,6 +211,12 @@ public class SequentialMatching {
 						
 					}
 				}
+				if (next_app == -1) {
+					for(int k = 0; k < apps; k++) {
+						if (matching_apps[k] == -1)
+							next_app = k;
+					}
+				}
 				
 			}
 		}

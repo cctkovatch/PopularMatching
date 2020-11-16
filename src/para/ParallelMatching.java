@@ -14,22 +14,22 @@ public class ParallelMatching {
 	
     public static void main(String[] args) throws Exception {
     	
-    	PreferenceListGenerator x = new PreferenceListGenerator(12,14);
+//    	PreferenceListGenerator x = new PreferenceListGenerator(12,14);
 //    	x.writeToFile(x.getPrefList());
-    	ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
-    	int apps = x.getAppCount();
-    	int posts = x.getPostCount();
-    	promotedMatch(pref_list, apps, posts);
-//    	int apps = 0;
-//    	int posts = 0;
-//    	String inputFile = args[0];
-//    	Scanner sc = new Scanner(new File(inputFile));
-//        String[] inputSizes = sc.nextLine().split(" ");
-//    	apps = Integer.parseInt(inputSizes[0]);
-//    	posts = Integer.parseInt(inputSizes[1]);
-//    	
-//    	ArrayList<ArrayList<Integer>> pref_list = parsePrefList(args, sc, apps, posts);
+//    	ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
+//    	int apps = x.getAppCount();
+//    	int posts = x.getPostCount();
     	
+    	int apps = 0;
+    	int posts = 0;
+    	String inputFile = args[0];
+    	Scanner sc = new Scanner(new File(inputFile));
+        String[] inputSizes = sc.nextLine().split(" ");
+    	apps = Integer.parseInt(inputSizes[0]);
+    	posts = Integer.parseInt(inputSizes[1]);
+    	ArrayList<ArrayList<Integer>> pref_list = parsePrefList(args, sc, apps, posts);
+    	promotedMatch(pref_list, apps, posts);
+
     }
     
     public static int[] promotedMatch(ArrayList<ArrayList<Integer>> pref_list, int apps, int posts) {
@@ -47,7 +47,6 @@ public class ParallelMatching {
     	}
     	int[] range_list = new int[posts];
     	Arrays.parallelSetAll(range_list,  i -> i);
-    	
     	Arrays.stream(range_list).filter(i -> matching[i] == -1 && is_fpost[i] == 1) //is an unmatched fpost
 	      .forEach(i -> {
 	    	  int promote_app = app1_fpost[i];
@@ -101,7 +100,7 @@ public class ParallelMatching {
     		while(p == -1) {
     			if (deg_posts[deg1_indexer] == 1) {
     				p = deg1_indexer;
-    				System.out.println("next deg 1 post is" + p);
+//    				System.out.println("next deg 1 post is" + p);
     			}
     			deg1_indexer++;
     			if (deg1_indexer >= posts)
@@ -113,7 +112,7 @@ public class ParallelMatching {
 			boolean has_next_path = true;
 			int a = 0;
 	
-			System.out.println(Arrays.toString(deg_posts) + " degrees" + num_match);
+//			System.out.println(Arrays.toString(deg_posts) + " degrees" + num_match);
 			//finding all edges an even distance away from p
 			while (has_next_path) {
 				if(matching_apps[a] == -1 && even_apps[a] == -1 && list[a] == 1) {
@@ -121,12 +120,12 @@ public class ParallelMatching {
 					even_apps[a] = p;
 					num_match++;
 					has_next_path = false;
-					System.out.println("adding post " + p + " with app " + a);
+//					System.out.println("adding post " + p + " with app " + a);
 					find_next_post:
 					for (int i = 0; i < app_list[a].length; i++) {
 						if (i != p && app_list[a][i] == 1) { 	//find the p's attached to app that have degree 2
 							if (deg_posts[i] == 2 && even_posts[i] == -1) {
-								System.out.println("setting next post for " + a + " as post: " + i);
+//								System.out.println("setting next post for " + a + " as post: " + i);
 								list = post_list[i];
 								has_next_path = true;
 								a = -1;
@@ -140,8 +139,8 @@ public class ParallelMatching {
 				a++;
 			
 			}
-			System.out.println(Arrays.toString(even_posts) + " posts found" + num_match);
-			System.out.println(Arrays.toString(even_apps) + " apps found" + num_match);
+//			System.out.println(Arrays.toString(even_posts) + " posts found" + num_match);
+//			System.out.println(Arrays.toString(even_apps) + " apps found" + num_match);
 			//matching and degree posts is parallel set
     		Arrays.parallelSetAll(matching,  e -> { 
     			if (even_posts[e] != -1) 
@@ -171,12 +170,12 @@ public class ParallelMatching {
     		
     		
 			
-			System.out.println(Arrays.toString(matching) + " matched" + num_match);
-			System.out.println(Arrays.toString(matching_apps) + " matched apps" + num_match);
-
-			System.out.println(Arrays.toString(deg_posts) + " degrees" + num_match);
+//			System.out.println(Arrays.toString(matching) + " matched" + num_match);
+//			System.out.println(Arrays.toString(matching_apps) + " matched apps" + num_match);
+//
+//			System.out.println(Arrays.toString(deg_posts) + " degrees" + num_match);
 			deg1_posts_count = (int)Arrays.stream(deg_posts).parallel().filter(i -> i == 1).count();
-			System.out.println(deg1_posts_count);
+//			System.out.println(deg1_posts_count);
 
     	}
 		long num_deg0_posts = Arrays.stream(deg_posts).parallel().filter(i -> i == 0).count();
@@ -184,13 +183,15 @@ public class ParallelMatching {
 		
 		
 		if (posts-num_deg0_posts < apps-num_match) {
-			System.out.println(num_deg0_posts + " no app complete matching");
+//			System.out.println(num_deg0_posts + " no app complete matching");
 			return false;
 		}
 		else {
-			System.out.println("break matching");
+//			System.out.println("break matching");
 
 			//break remainder of G into perfect matching
+			// could have multiple cycles
+			
 			int next_app = -1;
 			for(int i = 0; i < apps; i++) {
 				if (matching_apps[i] == -1)
@@ -213,7 +214,12 @@ public class ParallelMatching {
 							}
 						}
 						
-						
+					}
+				}
+				if (next_app == -1) {
+					for(int k = 0; k < apps; k++) {
+						if (matching_apps[k] == -1)
+							next_app = k;
 					}
 				}
 				
