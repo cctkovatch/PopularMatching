@@ -20,8 +20,8 @@ public class ParallelTests {
 		
 		//must have AT LEAST 2 POSTS and therefore at least 2 applicants
 		int app_range = 100;
-		int jump = 5;
-		int post_diff = 10;
+		int jump = 5 ;
+		int post_diff = 0;
 		int post_jump = 5;
 		
     	PreferenceListGenerator x = new PreferenceListGenerator();
@@ -31,8 +31,9 @@ public class ParallelTests {
     	
     	while (a < app_range) {
     		int p = a; 
-    		while (p < a+post_diff) {
+    		while (p <= a+post_diff) {
     			x.setSize(a, p);
+    			System.out.println(a + " " + p);
     			ArrayList<ArrayList<Integer>> pref_list = x.getPrefList();
     	    	int apps = x.getAppCount();
     	    	int posts = x.getPostCount();
@@ -42,7 +43,7 @@ public class ParallelTests {
     	    	int[] seq_match = SequentialMatching.promotedMatch(pref_list, apps, posts);
     	    	long endTime = System.nanoTime();
     	    	long seq_duration = (endTime - startTime);
-
+    	    	
     	    	if(seq_match == null) continue; // We want to check timing for matchable sets only.
 
 				/* Parallel timing */
@@ -50,28 +51,28 @@ public class ParallelTests {
     	    	int[] matching = ParallelMatching.promotedMatch(pref_list, apps, posts);
     	    	endTime = System.nanoTime();
     	    	long par_duration = (endTime - startTime);
-
+    	    	if(matching == null) continue;
+    	    	
     	    	/* Distributed timing */
 				startTime = System.nanoTime();
 				int[] distMatching = ParallelMatching.promotedMatch(pref_list, apps, posts);
 				endTime = System.nanoTime();
 				long distDuration = (endTime - startTime);
-
+				if(distMatching == null) continue;
+				
+				
+				
     	    	System.out.println("seq match: " + Arrays.toString(seq_match) + " " + seq_duration);
     	    	System.out.println("par match: " + Arrays.toString(matching) + " " + par_duration);
     	    	System.out.println(("dist match: ") +  Arrays.toString(distMatching) + " " + distDuration);
 
-    	    	if (matching == null) {
-    	    		System.out.println("no applicant complete matching");
-    	    		// keep trying until there is an app complete matching
-    	    	}
-    	    	else {
-	    	    	assertTrue(matchingCheck(apps, posts, pref_list, matching));
-	    	    	writeTiming(apps, posts, "Sequential", seq_duration);
-	    	    	writeTiming(apps, posts, "Parallel", par_duration);
-	    	    	writeTiming(apps, posts, "Distributed", distDuration);
-	    	    	p += post_jump;
-    	    	}
+    	    	
+    	    	assertTrue(matchingCheck(apps, posts, pref_list, matching));
+    	    	writeTiming(apps, posts, "Sequential", seq_duration);
+    	    	writeTiming(apps, posts, "Parallel", par_duration);
+    	    	writeTiming(apps, posts, "Distributed", distDuration);
+    	    	p += post_jump;
+    	    	
     			
     		}
     		a += jump;
